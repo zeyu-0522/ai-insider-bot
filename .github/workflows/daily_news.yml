@@ -1,0 +1,45 @@
+name: AI Insider Daily Publisher
+
+on:
+  schedule:
+    - cron: '0 * * * *'  # 每小时运行一次
+  workflow_dispatch:      # 允许手动点击运行 (用于测试)
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+        
+    - name: Install dependencies
+      run: |
+        pip install -r real_content_farm/requirements.txt
+        pip install Pillow feedparser google-generativeai datadog python-dotenv requests
+        
+    - name: Download Font (SimHei)
+      run: |
+        wget -O real_content_farm/SimHei.ttf https://github.com/StellarCN/scp_zh/raw/master/fonts/SimHei.ttf
+
+    - name: Run Content Farm Agent
+      env:
+        GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        TELEGRAM_CHANNEL_ID: ${{ secrets.TELEGRAM_CHANNEL_ID }}
+        RSS_SOURCE: https://news.ycombinator.com/rss
+      run: |
+        python real_content_farm/auto_agent_a.py
+        
+    - name: Commit and Push History
+      run: |
+        git config --global user.name 'AI Insider Bot'
+        git config --global user.email 'bot@noreply.github.com'
+        git add real_content_farm/history.json
+        git commit -m "Update history [skip ci]" || exit 0
+        git push
